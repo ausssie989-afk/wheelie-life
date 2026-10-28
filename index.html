@@ -1,15 +1,16 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Wheelie Life Open World</title>
+<title>Wheelie Life — Open World</title>
 <style>
+:root{--site-primary:#b9f34b;--site-secondary:#16232e;--site-background:#83c8ed}
 *{box-sizing:border-box}
-body{margin:0;overflow:hidden;background:#83c8ed;font-family:Arial,sans-serif;color:white;user-select:none}
-canvas{display:block;width:100vw;height:100vh}
-#hud{position:fixed;inset:0;pointer-events:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;background:#83c8ed;color:white}
+#app{position:relative;width:100%;height:100%;min-height:400px;overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;inset:0;pointer-events:none}
 .panel{position:absolute;background:#101923ed;border:1px solid #ffffff25;border-radius:12px;box-shadow:0 8px 30px #12202b25}
 .stats{top:14px;left:14px;width:220px;padding:14px}
 .logo{font-size:24px;font-weight:1000;font-style:italic;letter-spacing:-1px}
@@ -37,10 +38,10 @@ canvas{display:block;width:100vw;height:100vh}
 .leader-row{display:flex;justify-content:space-between;gap:8px;border-top:1px solid #ffffff20;padding:6px 0;font-size:11px}
 .leader-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .leader-row b{color:#c5f35c}
-button:focus-visible{outline:3px solid #28d5ff;outline-offset:3px}
 @media(max-width:700px){
 .stats{top:6px;left:6px;width:155px;padding:8px}
-.logo{font-size:18px}.sub{font-size:8px}
+.logo{font-size:18px}
+.sub{font-size:8px}
 .stat{font-size:10px;padding:4px 0}
 .bikeName{font-size:10px}
 .balance{top:6px;right:6px;width:130px;padding:8px}
@@ -56,8 +57,8 @@ button:focus-visible{outline:3px solid #28d5ff;outline-offset:3px}
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-
+<main id="app">
+<canvas id="game" aria-label="Wheelie Life riding game"></canvas>
 <div id="hud">
 <section class="panel stats">
 <div class="logo">WHEELIE LIFE</div>
@@ -99,14 +100,14 @@ button:focus-visible{outline:3px solid #28d5ff;outline-offset:3px}
 <div><span class="key">ENTER</span> RESTART</div>
 </div>
 </div>
+</main>
 
 <script>
 const canvas=document.getElementById('game');
 const ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 
-let W,H,ground,last=0,keys={},particles=[],bikeType=0;
-let helmetType=0,worldX=0,best=0,game;
+let W,H,ground,last=0,keys={},particles=[],bikeType=0,helmetType=0,worldX=0,best=0,game;
 
 const helmets=['#f4f4f4','#ff343f','#25b9ff','#f5d22e','#baff37'];
 
@@ -123,8 +124,11 @@ $('best').textContent=best;
 
 function resize(){
 const d=Math.min(devicePixelRatio||1,2);
-W=innerWidth;H=innerHeight;ground=H*.78;
-canvas.width=W*d;canvas.height=H*d;
+W=innerWidth;
+H=innerHeight;
+ground=H*.78;
+canvas.width=W*d;
+canvas.height=H*d;
 ctx.setTransform(d,0,0,d,0,0);
 }
 addEventListener('resize',resize);
@@ -133,10 +137,12 @@ resize();
 function reset(){
 game={
 speed:0,angle:0,spin:0,score:0,distance:0,
-started:false,crashed:false,crashTime:0,trick:'',
-trickTime:0,cooldown:0,scrapes:0,scrapeTimer:0,steer:0
+started:false,crashed:false,crashTime:0,
+trick:'',trickTime:0,cooldown:0,
+scrapes:0,scrapeTimer:0,steer:0
 };
-worldX=0;particles=[];
+worldX=0;
+particles=[];
 $('message').style.display='block';
 $('message').innerHTML='READY TO RIDE?<small>HOLD D TO ACCELERATE · F TO CHANGE BIKE</small>';
 $('trick').style.display='none';
@@ -169,10 +175,8 @@ $('trick').textContent=name+' +'+points;
 addEventListener('keydown',e=>{
 const k=e.key.toLowerCase();
 if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();
-
 if(!keys[k]){
 if(k==='f')switchBike();
-
 if(k==='g'){
 helmetType=(helmetType+1)%helmets.length;
 $('message').style.display='block';
@@ -181,7 +185,6 @@ setTimeout(()=>{
 if(game.started&&!game.crashed)$('message').style.display='none';
 },600);
 }
-
 if(k==='w')showTrick('SEAT STAND!',1.4,100);
 if(k==='s')showTrick('KNEE TRICK!',1.2,125);
 if(k==='e')showTrick('HAND DRAG!',1.1,150);
@@ -196,48 +199,6 @@ addEventListener('blur',()=>keys={});
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 
-let leaderboard=[];
-try{
-leaderboard=JSON.parse(localStorage.getItem('wheelieLeaderboard')||'[]');
-if(!Array.isArray(leaderboard))leaderboard=[];
-}catch(e){leaderboard=[]}
-
-function renderLeaderboard(){
-const rows=$('leaderRows');
-rows.innerHTML='';
-const scores=[...leaderboard].sort((a,b)=>b.score-a.score).slice(0,5);
-
-if(!scores.length){
-rows.innerHTML='<div class="leader-row"><span>No scores yet</span><b>---</b></div>';
-return;
-}
-
-scores.forEach((entry,index)=>{
-const row=document.createElement('div');
-row.className='leader-row';
-const name=document.createElement('span');
-name.textContent=(index+1)+'. '+entry.name;
-const score=document.createElement('b');
-score.textContent=Math.floor(entry.score).toLocaleString();
-row.append(name,score);
-rows.appendChild(row);
-});
-}
-
-function saveLeaderboardScore(){
-const finalScore=Math.floor(game.score);
-if(finalScore<=0)return;
-
-leaderboard.push({name:bikes[bikeType].name,score:finalScore});
-leaderboard.sort((a,b)=>b.score-a.score);
-leaderboard=leaderboard.slice(0,5);
-
-try{
-localStorage.setItem('wheelieLeaderboard',JSON.stringify(leaderboard));
-}catch(e){}
-renderLeaderboard();
-}
-
 function crash(message){
 if(game.crashed)return;
 game.crashed=true;
@@ -245,13 +206,11 @@ $('message').style.display='block';
 $('message').innerHTML=message+'<small>SCORE: '+Math.floor(game.score)+' · PRESS ENTER TO RETRY</small>';
 best=Math.max(best,Math.floor(game.score));
 $('best').textContent=best;
-
 try{localStorage.setItem('openWheelieBest',best)}catch(e){}
 saveLeaderboardScore();
 }
 
-/* Improved braking:
-   Smoothly slows the bike and helps bring the front wheel down. */
+/* Main physics: the normal acceleration, balance, scoring and crashes stay intact. */
 function update(dt){
 dt=Math.min(dt,.03);
 const b=bikes[bikeType];
@@ -272,27 +231,15 @@ game.started=true;
 game.speed+=b.accel*dt;
 game.spin-=((game.speed<25?1.1:.65)+game.speed/260)*b.torque*dt;
 }else{
-game.speed=Math.max(0,game.speed-8*dt);
+game.speed-=8*dt;
 }
 
-/* Progressive braking instead of harsh braking.
-   Braking force scales with the bike's acceleration. */
+/* WEAKER BRAKES:
+   Reduced stopping force and a gentle front-wheel-down effect. */
 if(brake){
-const brakeForce=b.accel*.95;
-game.speed=Math.max(0,game.speed-brakeForce*dt);
-
-/* Push the front down when the bike is wheeling.
-   If the bike is already level, keep the correction gentle. */
-if(game.angle<-.05){
-game.spin+=2.5*dt;
-}else{
-game.spin+=.9*dt;
-}
-
-/* Extra correction when the front wheel is raised. */
-if(game.angle<0){
-game.spin+=1.0*dt;
-}
+game.speed-=b.accel*.4*dt;
+game.spin+=(game.angle<0?1.2:.4)*dt;
+if(game.angle<0)game.spin+=.4*dt;
 }
 
 game.speed=clamp(game.speed,0,b.max);
@@ -333,7 +280,7 @@ if(game.started)game.score+=game.speed*dt*.08;
 
 game.scrapeTimer=Math.max(0,game.scrapeTimer-dt);
 
-const scraping=game.started&&game.speed>135&&game.angle<-.72&&game.angle>-1.04;
+const scraping=game.started&&game.speed>135&&game.angle<-.72&&game.angle> -1.04;
 
 if(scraping&&game.scrapeTimer<=0){
 game.scrapeTimer=.12;
@@ -343,7 +290,8 @@ $('scrapes').textContent=game.scrapes;
 
 for(let i=0;i<5;i++){
 particles.push({
-x:W*.30,y:ground-2,
+x:W*.30,
+y:ground-2,
 vx:-70-Math.random()*170,
 vy:-40-Math.random()*150,
 life:.25+Math.random()*.3,
@@ -407,6 +355,7 @@ ctx.fill();
 function wheel(x,y,r,red=false){
 ctx.save();
 ctx.translate(x,y);
+
 ctx.fillStyle='#111519';
 ctx.beginPath();
 ctx.arc(0,0,r,0,Math.PI*2);
@@ -445,7 +394,8 @@ ctx.restore();
 }
 
 function drawBike(){
-const b=bikes[bikeType],c=b.color,d=b.dark,l=b.light;
+const b=bikes[bikeType];
+const c=b.color,d=b.dark,l=b.light;
 const rearX=W*(.30+.09*clamp(game.speed/b.max,0,1));
 const rearY=ground-29;
 const red=b.style==='redelectric';
@@ -486,10 +436,13 @@ poly([[31,-57],[7,-66],[-23,-71],[-15,-65],[22,-56]],c);
 }
 
 poly([[35,-70],[52,-78],[91,-76],[122,-81],[143,-86],[126,-79],[91,-69],[55,-67]],'#11161b');
+
 line(123,-61,166,-3,'#c3a44d',8);
 line(129,-60,171,-3,'#dfc16d',3);
 line(127,-59,168,-5,'#313a40',2);
+
 poly([[137,-31],[157,-23],[182,-13],[193,-12],[172,-22],[151,-30]],c);
+
 line(116,-65,129,-78,d,4);
 line(123,-73,140,-74,d,4);
 
@@ -511,6 +464,7 @@ ctx.ellipse(35,-108,14,13,-.25,0,Math.PI*2);
 ctx.fill();
 
 poly([[26,-116],[11,-119],[26,-123],[45,-117]],d);
+
 ctx.fillStyle='#222a30';
 ctx.fillRect(39,-109,9,3);
 
@@ -530,6 +484,7 @@ ctx.fillStyle=sky;
 ctx.fillRect(0,0,W,H);
 
 ctx.fillStyle='#ffffff8a';
+
 for(let i=0;i<7;i++){
 let x=((i*251-worldX*.12)%(W+200)+W+200)%(W+200)-100;
 let y=55+(i%3)*42;
@@ -544,7 +499,11 @@ ctx.fill();
 ctx.fillStyle='#92c8a0';
 ctx.beginPath();
 ctx.moveTo(0,ground);
-for(let x=0;x<=W+20;x+=20)ctx.lineTo(x,ground-100-Math.sin((x+worldX*.22)*.006)*38);
+
+for(let x=0;x<=W+20;x+=20){
+ctx.lineTo(x,ground-100-Math.sin((x+worldX*.22)*.006)*38);
+}
+
 ctx.lineTo(W,H);
 ctx.lineTo(0,H);
 ctx.fill();
@@ -558,8 +517,9 @@ const h=50+(Math.abs(Math.floor(x/190)*31)%45);
 ctx.fillStyle='#8cabb9';
 ctx.fillRect(x,ground-h,105,h);
 ctx.fillStyle='#dcebf0';
-for(let y=ground-h+12;y<ground-6;y+=17)
+for(let y=ground-h+12;y<ground-6;y+=17){
 for(let xx=x+12;xx<x+95;xx+=22)ctx.fillRect(xx,y,9,8);
+}
 ctx.fillStyle='#5c7b8b';
 ctx.fillRect(x+38,ground-24,22,24);
 }
@@ -605,7 +565,10 @@ ctx.fillRect(0,ground,W,4);
 
 const dash=(worldX*5)%110;
 ctx.fillStyle=zone===3?'#d3b887':'#f2d85a';
-for(let x=-110-dash;x<W+110;x+=110)ctx.fillRect(x,ground+78,55,5);
+
+for(let x=-110-dash;x<W+110;x+=110){
+ctx.fillRect(x,ground+78,55,5);
+}
 
 ctx.fillStyle='#ffffff15';
 for(let x=-(worldX*2%45);x<W;x+=45){
@@ -628,10 +591,66 @@ ctx.fill();
 }
 
 ctx.globalAlpha=1;
+
 if(game.crashed){
 ctx.fillStyle='#10182035';
 ctx.fillRect(0,0,W,H);
 }
+}
+
+/* Local leaderboard */
+let leaderboard=[];
+
+try{
+leaderboard=JSON.parse(localStorage.getItem('wheelieLeaderboard')||'[]');
+if(!Array.isArray(leaderboard))leaderboard=[];
+}catch(e){
+leaderboard=[];
+}
+
+function renderLeaderboard(){
+const rows=$('leaderRows');
+rows.innerHTML='';
+
+const scores=[...leaderboard].sort((a,b)=>b.score-a.score).slice(0,5);
+
+if(!scores.length){
+rows.innerHTML='<div class="leader-row"><span>No scores yet</span><b>---</b></div>';
+return;
+}
+
+scores.forEach((entry,index)=>{
+const row=document.createElement('div');
+row.className='leader-row';
+
+const name=document.createElement('span');
+name.textContent=(index+1)+'. '+entry.name;
+
+const score=document.createElement('b');
+score.textContent=Math.floor(entry.score).toLocaleString();
+
+row.append(name,score);
+rows.appendChild(row);
+});
+}
+
+function saveLeaderboardScore(){
+const finalScore=Math.floor(game.score);
+if(finalScore<=0)return;
+
+leaderboard.push({
+name:bikes[bikeType].name,
+score:finalScore
+});
+
+leaderboard.sort((a,b)=>b.score-a.score);
+leaderboard=leaderboard.slice(0,5);
+
+try{
+localStorage.setItem('wheelieLeaderboard',JSON.stringify(leaderboard));
+}catch(e){}
+
+renderLeaderboard();
 }
 
 renderLeaderboard();
